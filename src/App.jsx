@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, useHelper } from '@react-three/drei'
+import { OrbitControls, useHelper, useTexture } from '@react-three/drei'
 import { DoubleSide, DirectionalLightHelper } from 'three'
 
 import './index.css'
@@ -17,6 +17,8 @@ function Scene() {
   useHelper(light1Ref, DirectionalLightHelper, 150, "red")
   useHelper(light2Ref, DirectionalLightHelper, 150, "blue")
 
+  const [displaceMap1, displaceMap2, displaceMap3] = useTexture(['./textures/heightmap_01.png', './textures/heightmap_02.jpg', './textures/heightmap_03.png'])
+
 return(
   <>
   <directionalLight
@@ -29,6 +31,7 @@ return(
       />
 
   <mesh
+    rotation={[- Math.PI / 2, 0, 0]}
       >
       <planeGeometry
       args={[BOUNDS, BOUNDS, WIDTH - 1, WIDTH -1]}
@@ -37,6 +40,8 @@ return(
       <meshStandardMaterial 
       side={DoubleSide}
       wireframe={true}
+      displacementMap={displaceMap1}
+      displacementScale={50}
       />
       </mesh>
       </>
@@ -49,7 +54,7 @@ function App() {
 
     <Canvas
       camera={{ 
-      position: [0, 0, 450],
+      position: [0, 150, 450],
       near: 0.01,
       far: 2000,
       fov: 40 }}  
