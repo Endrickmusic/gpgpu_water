@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react'
-import { Canvas, useLoader, useThree } from '@react-three/fiber'
+import { Canvas, useLoader, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, useHelper, useTexture, useEnvironment, Environment } from '@react-three/drei'
 import { DoubleSide, DirectionalLightHelper, Vector2 } from 'three'
 import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer'
@@ -21,6 +21,8 @@ function Scene() {
   const light2Ref = useRef()
   const planeRef = useRef()
 
+  let computeMaterial
+
   useHelper(light1Ref, DirectionalLightHelper, 150, "red")
   useHelper(light2Ref, DirectionalLightHelper, 150, "blue")
   // useHelper(planeRef, VertexNormalsHelper, 1, "green");
@@ -34,21 +36,30 @@ function Scene() {
     // normalMap: './textures/rock_textures/aerial_rocks_01_nor_gl_4k.exr'
   })
 
-  
-
   // const normalMap = useLoader(EXRLoader, './textures/rock_textures/aerial_rocks_01_nor_gl_4k.exr') 
 
   // GPUComputationRenderer instance
   const gpuCompute = useRef(null);
   const displacementMap = useRef(null);
 
+  useEffect(() => {
+    gpuCompute.current = new GPUComputationRenderer(WIDTH, HEIGHT, gl)
+    gpuCompute.current = gpuRenderer;
+    computeMaterial = initComputeRenderer()
+    initComputeRenderer()
+    console.log('Effect is rendered')
+  }, [])
+
+  // Create a displacement map texture
   useFrame(() => {
-    if (!gpuCompute.current) {
-      gpuCompute.current = new GPUComputationRenderer(WIDTH, HEIGHT, gl);
-      initComputeRenderer();
+    console.log('Frame is rendered')
+    if (gpuCompute.current && gpuCompute.current.getCurrentRenderTarget(displacementMap.current) !== null) {
+      const texture = gpuCompute.current.getCurrentRenderTarget(displacementMap.current).texture;
+      if (texture) {
+        texture.needsUpdate = true;
+      }
     }
-    gpuCompute.current.compute();
-  });
+  })
 
   
   // Initialize the compute shader
@@ -65,7 +76,19 @@ function Scene() {
       `,
       { resolution: { value: new Vector2(WIDTH, HEIGHT) } }
     )
+    return computeMaterial
+  }
+   
+  const heightmapVariable = gpuCompute.current.addVariable('heightmap', computeMaterial)
 
+  gpuCompute.current.setVariableDependencies(heightmapVariable, [heightmapVariable])
+  
+  heightmapVariable.material.uniforms.resolution = { value: new Vector2(WIDTH, HEIGHT) }
+
+    const error = gpuCompute.current.init()
+    if (error !== null) {
+      console.error(error);
+    }
 
 return(
   <>
@@ -97,7 +120,7 @@ return(
       // map={normalMap}
       side={DoubleSide}
       wireframe={false}
-      // displacementMap={displaceMap1}
+      // displacementMap={displacementMap.current}
       displacementScale={50}
       roughness={0.8}
       metalness={0.0}
