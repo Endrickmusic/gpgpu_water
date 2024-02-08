@@ -1,18 +1,21 @@
-import { useRef } from 'react'
-import { Canvas, useLoader  } from '@react-three/fiber'
+import { useRef, useEffect } from 'react'
+import { Canvas, useLoader, useThree } from '@react-three/fiber'
 import { OrbitControls, useHelper, useTexture, useEnvironment, Environment } from '@react-three/drei'
-import { DoubleSide, DirectionalLightHelper } from 'three'
+import { DoubleSide, DirectionalLightHelper, Vector2 } from 'three'
 import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer'
 import { VertexNormalsHelper } from 'three/addons/helpers/VertexNormalsHelper.js'
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js'
 
 import './index.css'
-import Shader from './Shader.jsx'
 
 function Scene() {
 
+  const { gl } = useThree()
+
   const BOUNDS = 512
   const WIDTH = 128
+  const HEIGHT = WIDTH
+
 
   const light1Ref = useRef()
   const light2Ref = useRef()
@@ -25,13 +28,43 @@ function Scene() {
   const [displaceMap1, displaceMap2, displaceMap3] = useTexture(['./textures/heightmap_01.png', './textures/heightmap_02.jpg', './textures/heightmap_03.png'])
 
   const props = useTexture({
-    RoughnessMap: './textures/rock_textures/aerial_rocks_01_rough_4k.jpg',
-    map: './textures/rock_textures/aerial_rocks_01_diff_4k.jpg',
-    displacementMap: './textures/rock_textures/aerial_rocks_01_disp_4k.png'
+    // RoughnessMap: './textures/rock_textures/aerial_rocks_01_rough_4k.jpg',
+    // map: './textures/rock_textures/aerial_rocks_01_diff_4k.jpg',
+    // displacementMap: './textures/rock_textures/aerial_rocks_01_disp_4k.png'
     // normalMap: './textures/rock_textures/aerial_rocks_01_nor_gl_4k.exr'
   })
 
-  const normalMap = useLoader(EXRLoader, './textures/rock_textures/aerial_rocks_01_nor_gl_4k.exr') 
+  
+
+  // const normalMap = useLoader(EXRLoader, './textures/rock_textures/aerial_rocks_01_nor_gl_4k.exr') 
+
+  // GPUComputationRenderer instance
+  const gpuCompute = useRef(null);
+  const displacementMap = useRef(null);
+
+  useFrame(() => {
+    if (!gpuCompute.current) {
+      gpuCompute.current = new GPUComputationRenderer(WIDTH, HEIGHT, gl);
+      initComputeRenderer();
+    }
+    gpuCompute.current.compute();
+  });
+
+  
+  // Initialize the compute shader
+  const initComputeRenderer = () => {
+    const computeMaterial = gpuCompute.current.createShaderMaterial(
+      `
+      uniform vec2 resolution;
+
+      void main() {
+        vec2 uv = gl_FragCoord.xy / resolution.xy;
+        float height = sin(uv) // Your heightmap generation algorithm or noise function here;
+        gl_FragColor = vec4(height, height, height, 1.0);
+      }
+      `,
+      { resolution: { value: new Vector2(WIDTH, HEIGHT) } }
+    )
 
 
 return(
@@ -61,14 +94,15 @@ return(
       />
       <meshStandardMaterial 
       {...props}
+      // map={normalMap}
       side={DoubleSide}
       wireframe={false}
       // displacementMap={displaceMap1}
       displacementScale={50}
-      roughness={0.4}
-      metalness={1.0}
-      normalMap={normalMap}
-      normalScale={50}
+      roughness={0.8}
+      metalness={0.0}
+      // normalMap={normalMap}
+      // normalScale={50}
       />
       </mesh>
       </>
